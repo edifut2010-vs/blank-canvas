@@ -1,24 +1,37 @@
-# Blank Canvas
+# LeadFinder AI
 
-.
+Plataforma privada de prospeção comercial para descobrir negócios locais, analisar presença digital e preparar propostas de websites personalizadas.
 
-This project was built with [Lovable](https://lovable.dev).
+## Stack
+- React 19 + TypeScript + TanStack Start
+- Tailwind CSS v4 + Lucide React
+- Google Places API (New)
+- Fornecedor de IA compatível com Chat Completions
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/2ea985a5-ff1c-4da5-9d10-4592620cca8f).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+## Executar
+```bash
+npm install
+cp .env.example .env
 npm run dev
 ```
+
+## Integrações
+Preenche o .env local (não publiques chaves reais):
+```env
+GOOGLE_MAPS_API_KEY=
+AI_API_KEY=
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL=gpt-4o-mini
+```
+Ativa Places API (New) no Google Cloud. Em produção, guarda estas variáveis nos Secrets do alojamento. Não uses prefixo VITE_ para credenciais secretas.
+
+## Funcionalidades
+- Pesquisa real via Google Places API (New), com localização, nicho, website, telefone e avaliações.
+- Análise IA, geração de prompt para website, abordagem comercial e tradução.
+- Leads e histórico guardados localmente no navegador.
+- Exportação Markdown, cópia de texto e ligação manual para WhatsApp.
+- Credenciais processadas no servidor; a interface informa quando falta configuração.
+
+**Nota:** “Sem website identificado no Google Maps” significa apenas que o Google Places não devolveu websiteUri. Não prova que a empresa não tenha website.
+
+Respeita quotas, atribuições e políticas Google Maps Platform, RGPD e regras de comunicações comerciais. A aplicação é pessoal, sem pagamentos ou subscrições.
