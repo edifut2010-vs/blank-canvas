@@ -23,7 +23,9 @@ AI_API_KEY=
 AI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=gpt-4o-mini
 ```
-Ativa Places API (New) no Google Cloud. Em produção, guarda estas variáveis nos Secrets do alojamento. Não uses prefixo VITE_ para credenciais secretas.
+Ativa **Places API (New)** no Google Cloud e restringe a chave a essa API. No Lovable, define os valores em **Project Settings → Secrets** (nunca no chat, no código ou em commits). Não uses prefixo VITE_ para credenciais. As chaves são lidas só dentro das funções de servidor e nunca chegam ao browser.
+
+Testar: abre **Definições** (ambas devem mostrar "Configurada"), faz uma pesquisa em **Encontrar Leads** e gera uma análise IA. Erros 401/403/429 aparecem com mensagem clara.
 
 ## Funcionalidades
 - Pesquisa real via Google Places API (New), com localização, nicho, website, telefone e avaliações.

@@ -1,33 +1,150 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { describeProviderError } from "./leadfinder-errors";
 
-type SearchInput = { country:string; city:string; region?:string; niche:string; withoutWebsite?:boolean; phoneOnly?:boolean; minRating?:number; minReviews?:number };
-type AiInput = { task:"analysis"|"website"|"outreach"|"translate"; lead:Record<string,unknown>; context?:string; tone?:string; channel?:string; language?:string };
-const env=(key:string,fallback="")=>process.env[key]||fallback;
+// Secrets are read ONLY inside .handler() bodies. On Cloudflare Workers (nodejs_compat)
+// the runtime populates process.env per request; locally Vite loads .env. Never use VITE_ for these.
+type EnvKey = "GOOGLE_MAPS_API_KEY" | "AI_API_KEY" | "AI_BASE_URL" | "AI_MODEL";
+function readEnv(key: EnvKey, fallback = ""): string {
+  const v = typeof process !== "undefined" ? process.env?.[key] : undefined;
+  return typeof v === "string" && v.trim() ? v.trim() : fallback;
+}
 
-export const getIntegrationStatus=createServerFn({method:"GET"}).handler(async()=>({googleMaps:Boolean(env("GOOGLE_MAPS_API_KEY")),ai:Boolean(env("AI_API_KEY")),aiModel:env("AI_MODEL","gpt-4o-mini")}));
-
-export const searchPlaces=createServerFn({method:"POST"}).inputValidator((data:SearchInput)=>data).handler(async({data})=>{
- const key=env("GOOGLE_MAPS_API_KEY");
- if(!key) throw new Error("Configura GOOGLE_MAPS_API_KEY nos Secrets do servidor.");
- if(!data.city?.trim()||!data.country?.trim()||!data.niche?.trim()) throw new Error("Preenche país, cidade e nicho.");
- const query=data.niche+" em "+data.city+(data.region?", "+data.region:"")+", "+data.country;
- const res=await fetch("https://places.googleapis.com/v1/places:searchText",{method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,"X-Goog-FieldMask":"places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location"},body:JSON.stringify({textQuery:query,pageSize:20,languageCode:"pt-PT"})});
- const body=await res.json(); if(!res.ok) throw new Error(body.error?.message||"Erro do Google Places.");
- const places=Array.isArray(body.places)?body.places:[];
- const leads=places.map((p:any)=>({id:p.id,name:p.displayName?.text||"Nome não identificado",category:p.primaryTypeDisplayName?.text||data.niche,address:p.formattedAddress||"Morada não identificada",phone:p.nationalPhoneNumber||"",rating:typeof p.rating==="number"?p.rating:null,reviews:p.userRatingCount||0,website:p.websiteUri||null,mapsUrl:p.googleMapsUri||"https://www.google.com/maps",hours:p.regularOpeningHours?.weekdayDescriptions||[],location:p.location}));
- return {leads:leads.filter((l:any)=>(!data.withoutWebsite||!l.website)&&(!data.phoneOnly||Boolean(l.phone))&&(l.rating||0)>=(data.minRating||0)&&l.reviews>=(data.minReviews||0)),total:leads.length};
+const SearchSchema = z.object({
+  country: z.string().trim().min(1).max(80),
+  city: z.string().trim().min(1).max(80),
+  region: z.string().trim().max(80).optional(),
+  niche: z.string().trim().min(1).max(100),
+  withoutWebsite: z.boolean().optional(),
+  phoneOnly: z.boolean().optional(),
+  minRating: z.number().min(0).max(5).optional(),
+  minReviews: z.number().min(0).max(1e6).optional(),
+});
+const AiSchema = z.object({
+  task: z.enum(["analysis", "website", "outreach", "translate"]),
+  lead: z.record(z.string(), z.unknown()),
+  context: z.string().max(8000).optional(),
+  tone: z.string().max(100).optional(),
+  channel: z.string().max(100).optional(),
+  language: z.string().max(60).optional(),
 });
 
-export const generateWithAI=createServerFn({method:"POST"}).inputValidator((data:AiInput)=>data).handler(async({data})=>{
- const key=env("AI_API_KEY"); if(!key) throw new Error("Configura AI_API_KEY nos Secrets do servidor.");
- const base=env("AI_BASE_URL","https://api.openai.com/v1").replace(/\/$/,"");
- const instructions:Record<AiInput["task"],string>={
- analysis:"Analisa este negócio: identidade comercial, contactos, presença digital, identidade visual inferível, reputação, público-alvo provável, oportunidades e funcionalidades recomendadas para website. Distingue factos de inferências. Usa 'Não identificado' para lacunas. Nunca inventes dados.",
- website:"Cria um prompt extremamente detalhado e pronto a colar no Lovable, Bolt, v0 ou Replit para construir o website deste negócio. Inclui contexto, objetivos, identidade visual, páginas, secções, conteúdo, funcionalidades, SEO, acessibilidade, responsividade, segurança e critérios de aceitação. Só utiliza factos fornecidos e marca o que deve ser confirmado.",
- outreach:"Escreve uma abordagem comercial natural, curta e personalizada para propor a criação de um website. Não pareça spam. Não afirmes que não existe website; usa 'não encontrei um website associado no Google Maps' quando aplicável.",
- translate:"Traduz e adapta a mensagem fornecida para o idioma pedido, preservando intenção, tom e naturalidade. Devolve apenas a mensagem final."
- };
- const res=await fetch(base+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+key},body:JSON.stringify({model:env("AI_MODEL","gpt-4o-mini"),temperature:data.task==="website"?0.65:0.45,messages:[{role:"system",content:"És consultor sénior de prospeção comercial e estratégia digital. Responde em português de Portugal, salvo indicação contrária. "+instructions[data.task]},{role:"user",content:JSON.stringify({negocio:data.lead,contexto:data.context,tom:data.tone,canal:data.channel,idioma:data.language},null,2)}]})});
- const body=await res.json(); if(!res.ok) throw new Error(body.error?.message||"Erro do fornecedor de IA.");
- const text=body.choices?.[0]?.message?.content; if(!text) throw new Error("A IA não devolveu texto."); return {text};
-});
+async function safeJson(res: Response): Promise<any> {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+export const getIntegrationStatus = createServerFn({ method: "GET" }).handler(async () => ({
+  googleMaps: Boolean(readEnv("GOOGLE_MAPS_API_KEY")),
+  ai: Boolean(readEnv("AI_API_KEY")),
+  aiModel: readEnv("AI_MODEL", "gpt-4o-mini"),
+}));
+
+const FIELD_MASK =
+  "places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location";
+
+export const searchPlaces = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => SearchSchema.parse(d))
+  .handler(async ({ data }) => {
+    const key = readEnv("GOOGLE_MAPS_API_KEY");
+    if (!key) throw new Error("GOOGLE_MAPS_API_KEY não está configurada nos Secrets do projeto.");
+    const query = `${data.niche} em ${data.city}${data.region ? ", " + data.region : ""}, ${data.country}`;
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": FIELD_MASK,
+      },
+      body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT" }),
+    });
+    const body = await safeJson(res);
+    if (!res.ok) {
+      console.error(`Places error ${res.status}`);
+      throw new Error(describeProviderError("google", res.status, body));
+    }
+    const places: any[] = Array.isArray(body.places) ? body.places : [];
+    const leads = places.map((p) => ({
+      id: p.id,
+      name: p.displayName?.text || "Nome não identificado",
+      category: p.primaryTypeDisplayName?.text || data.niche,
+      address: p.formattedAddress || "Morada não identificada",
+      phone: p.nationalPhoneNumber || "",
+      rating: typeof p.rating === "number" ? p.rating : null,
+      reviews: p.userRatingCount || 0,
+      website: p.websiteUri || null,
+      mapsUrl: p.googleMapsUri || "https://www.google.com/maps",
+      hours: p.regularOpeningHours?.weekdayDescriptions || [],
+      location: p.location,
+    }));
+    return {
+      leads: leads.filter(
+        (l) =>
+          (!data.withoutWebsite || !l.website) &&
+          (!data.phoneOnly || Boolean(l.phone)) &&
+          (l.rating || 0) >= (data.minRating || 0) &&
+          l.reviews >= (data.minReviews || 0),
+      ),
+      total: leads.length,
+    };
+  });
+
+const INSTRUCTIONS: Record<z.infer<typeof AiSchema>["task"], string> = {
+  analysis:
+    "Analisa este negócio: identidade comercial, contactos, presença digital, identidade visual inferível, reputação, público-alvo provável, oportunidades e funcionalidades recomendadas para website. Distingue factos de inferências. Usa 'Não identificado' para lacunas. Nunca inventes dados.",
+  website:
+    "Cria um prompt extremamente detalhado e pronto a colar no Lovable, Bolt, v0 ou Replit para construir o website deste negócio. Inclui contexto, objetivos, identidade visual, páginas, secções, conteúdo, funcionalidades, SEO, acessibilidade, responsividade, segurança e critérios de aceitação. Só utiliza factos fornecidos e marca o que deve ser confirmado.",
+  outreach:
+    "Escreve uma abordagem comercial natural, curta e personalizada para propor a criação de um website. Não pareça spam. Não afirmes que não existe website; usa 'não encontrei um website associado no Google Maps' quando aplicável.",
+  translate:
+    "Traduz e adapta a mensagem fornecida para o idioma pedido, preservando intenção, tom e naturalidade. Devolve apenas a mensagem final.",
+};
+
+export const generateWithAI = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => AiSchema.parse(d))
+  .handler(async ({ data }) => {
+    const key = readEnv("AI_API_KEY");
+    if (!key) throw new Error("AI_API_KEY não está configurada nos Secrets do projeto.");
+    const base = readEnv("AI_BASE_URL", "https://api.openai.com/v1").replace(/\/$/, "");
+    const res = await fetch(base + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({
+        model: readEnv("AI_MODEL", "gpt-4o-mini"),
+        temperature: data.task === "website" ? 0.65 : 0.45,
+        messages: [
+          {
+            role: "system",
+            content:
+              "És consultor sénior de prospeção comercial e estratégia digital. Responde em português de Portugal, salvo indicação contrária. " +
+              INSTRUCTIONS[data.task],
+          },
+          {
+            role: "user",
+            content: JSON.stringify(
+              {
+                negocio: data.lead,
+                contexto: data.context,
+                tom: data.tone,
+                canal: data.channel,
+                idioma: data.language,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      }),
+    });
+    const body = await safeJson(res);
+    if (!res.ok) {
+      console.error(`AI error ${res.status}`);
+      throw new Error(describeProviderError("ai", res.status, body));
+    }
+    const text = body.choices?.[0]?.message?.content;
+    if (!text) throw new Error("A IA não devolveu texto.");
+    return { text };
+  });
