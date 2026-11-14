@@ -44,7 +44,8 @@ async function safeJson(res: Response): Promise<any> {
 }
 
 export const getIntegrationStatus = createServerFn({ method: "GET" }).handler(async () => ({
-  googleMaps: Boolean(readEnv("GOOGLE_MAPS_API_KEY")),
+  // The Lovable connector requires both the project gateway key and its Maps connection key.
+  googleMaps: Boolean(readEnv("LOVABLE_API_KEY") && readEnv("GOOGLE_MAPS_API_KEY")),
   ai: Boolean(readEnv("AI_API_KEY")),
   aiModel: readEnv("AI_MODEL", "gpt-4o-mini"),
 }));
@@ -55,43 +56,65 @@ const FIELD_MASK =
 export const searchPlaces = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SearchSchema.parse(d))
   .handler(async ({ data }) => {
-    const headers = mapsHeaders(FIELD_MASK);
-    if (!headers) throw new Error("A ligação Google Maps não está configurada neste projeto.");
-    const query = `${data.niche} em ${data.city}${data.region ? ", " + data.region : ""}, ${data.country}`;
-    const res = await fetch(PLACES_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT" }),
-    });
-    const body = await safeJson(res);
-    if (!res.ok) {
-      console.error(`Places error ${res.status}`);
-      throw new Error(describeProviderError("google", res.status, body));
-    }
-    const places: any[] = Array.isArray(body.places) ? body.places : [];
-    const leads = places.map((p) => ({
-      id: p.id,
-      name: p.displayName?.text || "Nome não identificado",
-      category: p.primaryTypeDisplayName?.text || data.niche,
-      address: p.formattedAddress || "Morada não identificada",
-      phone: p.nationalPhoneNumber || "",
-      rating: typeof p.rating === "number" ? p.rating : null,
-      reviews: p.userRatingCount || 0,
-      website: p.websiteUri || null,
-      mapsUrl: p.googleMapsUri || "https://www.google.com/maps",
-      hours: p.regularOpeningHours?.weekdayDescriptions || [],
-      location: p.location,
-    }));
-    return {
-      leads: leads.filter(
+    try {
+      const headers = mapsHeaders(FIELD_MASK);
+      if (!headers) {
+        return {
+          ok: false as const,
+          error: "A ligação Google Maps não está totalmente configurada. Confirma os Secrets LOVABLE_API_KEY e GOOGLE_MAPS_API_KEY no alojamento.",
+          leads: [],
+          total: 0,
+        };
+      }
+      const query = `${data.niche} em ${data.city}${data.region ? ", " + data.region : ""}, ${data.country}`;
+      const res = await fetch(PLACES_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT" }),
+      });
+      const body = await safeJson(res);
+      if (!res.ok) {
+        console.error(`Places error ${res.status}: ${JSON.stringify(body).slice(0, 1500)}`);
+        return {
+          ok: false as const,
+          error: describeProviderError("google", res.status, body),
+          leads: [],
+          total: 0,
+        };
+      }
+      const places: any[] = Array.isArray(body.places) ? body.places : [];
+      const leads = places.map((p) => ({
+        id: p.id,
+        name: p.displayName?.text || "Nome não identificado",
+        category: p.primaryTypeDisplayName?.text || data.niche,
+        address: p.formattedAddress || "Morada não identificada",
+        phone: p.nationalPhoneNumber || "",
+        rating: typeof p.rating === "number" ? p.rating : null,
+        reviews: p.userRatingCount || 0,
+        website: p.websiteUri || null,
+        mapsUrl: p.googleMapsUri || "https://www.google.com/maps",
+        hours: p.regularOpeningHours?.weekdayDescriptions || [],
+        location: p.location,
+      }));
+      const filtered = leads.filter(
         (l) =>
           (!data.withoutWebsite || !l.website) &&
           (!data.phoneOnly || Boolean(l.phone)) &&
           (l.rating || 0) >= (data.minRating || 0) &&
           l.reviews >= (data.minReviews || 0),
-      ),
-      total: leads.length,
-    };
+      );
+      return { ok: true as const, leads: filtered, total: filtered.length };
+    } catch (error) {
+      console.error("Places search failed:", error);
+      return {
+        ok: false as const,
+        error: error instanceof Error
+          ? `Não foi possível concluir a pesquisa Google Places: ${error.message}`
+          : "Não foi possível contactar o Google Places. Verifica a ligação e tenta novamente.",
+        leads: [],
+        total: 0,
+      };
+    }
   });
 
 const INSTRUCTIONS: Record<z.infer<typeof AiSchema>["task"], string> = {
