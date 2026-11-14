@@ -52,7 +52,7 @@ export const getIntegrationStatus = createServerFn({ method: "GET" }).handler(as
 }));
 
 const FIELD_MASK =
-  "places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location,places.photos.name,places.photos.authorAttributions";
+  "places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location,places.photos.name,places.photos.authorAttributions,nextPageToken";
 
 export const searchPlaces = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SearchSchema.parse(d))
