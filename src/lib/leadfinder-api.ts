@@ -151,7 +151,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
             role: "system",
             content:
               "És consultor sénior de prospeção comercial e estratégia digital. Responde em português de Portugal, salvo indicação contrária. " +
-              INSTRUCTIONS[data.task],
+              INSTRUCTIONS[data.task] + " " + sectorInstructions(String(data.lead.category || "")),
           },
           {
             role: "user",
