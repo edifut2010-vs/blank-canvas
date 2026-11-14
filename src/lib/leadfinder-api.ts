@@ -51,7 +51,7 @@ export const getIntegrationStatus = createServerFn({ method: "GET" }).handler(as
 }));
 
 const FIELD_MASK =
-  "places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location";
+  "places.id,places.displayName,places.primaryTypeDisplayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.location,places.photos.name,places.photos.authorAttributions";
 
 export const searchPlaces = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SearchSchema.parse(d))
@@ -95,6 +95,7 @@ export const searchPlaces = createServerFn({ method: "POST" })
         mapsUrl: p.googleMapsUri || "https://www.google.com/maps",
         hours: p.regularOpeningHours?.weekdayDescriptions || [],
         location: p.location,
+        photos: Array.isArray(p.photos) ? p.photos.slice(0, 4).map((photo: any) => ({ name: photo.name, attributions: photo.authorAttributions || [] })) : [],
       }));
       const filtered = leads.filter(
         (l) =>
@@ -118,15 +119,20 @@ export const searchPlaces = createServerFn({ method: "POST" })
   });
 
 const INSTRUCTIONS: Record<z.infer<typeof AiSchema>["task"], string> = {
-  analysis:
-    "Analisa este negócio: identidade comercial, contactos, presença digital, identidade visual inferível, reputação, público-alvo provável, oportunidades e funcionalidades recomendadas para website. Distingue factos de inferências. Usa 'Não identificado' para lacunas. Nunca inventes dados.",
-  website:
-    "Cria um prompt extremamente detalhado e pronto a colar no Lovable, Bolt, v0 ou Replit para construir o website deste negócio. Inclui contexto, objetivos, identidade visual, páginas, secções, conteúdo, funcionalidades, SEO, acessibilidade, responsividade, segurança e critérios de aceitação. Só utiliza factos fornecidos e marca o que deve ser confirmado.",
-  outreach:
-    "Escreve uma abordagem comercial natural, curta e personalizada para propor a criação de um website. Não pareça spam. Não afirmes que não existe website; usa 'não encontrei um website associado no Google Maps' quando aplicável.",
-  translate:
-    "Traduz e adapta a mensagem fornecida para o idioma pedido, preservando intenção, tom e naturalidade. Devolve apenas a mensagem final.",
+  analysis: "Analisa este negócio de forma específica ao setor: identidade, presença digital, reputação, público-alvo, produtos e serviços visíveis nas fotografias. Examina cada imagem. Em restaurantes/cafés/pastelarias identifica pratos, bebidas, apresentação, estilo gastronómico e ambiente; não afirmes ingredientes ou alergénios sem evidência. Em oficinas identifica veículos, elevadores, ferramentas, pneus, motores e trabalhos visíveis; distingue serviços confirmados de hipóteses a confirmar. Em salões observa cortes e tratamentos; em ginásios equipamentos e espaços; em clínicas descreve apenas instalações/equipamentos sem inferir diagnósticos ou especialidades. Distingue factos, observações visuais e hipóteses. Nunca inventes.",
+  website: "Cria um prompt extremamente detalhado pronto a colar num construtor de websites. Analisa visualmente todas as fotografias anexadas e transforma observações em conteúdo, secções e direção visual. Restaurantes: menu e galeria com pratos/bebidas realmente visíveis, sem inventar preços, ingredientes ou alergénios. Oficinas: propõe páginas de serviços com base em equipamentos e trabalhos visíveis, mas marca como a confirmar tudo o que não esteja explicitamente comprovado. Adapta estrutura e funcionalidades ao setor. Inclui contexto, identidade visual, páginas, conteúdo, funcionalidades, SEO, acessibilidade, responsividade, segurança e critérios de aceitação. Não inventes factos.",
+  outreach: "Escreve uma abordagem comercial natural, curta e personalizada para propor a criação de um website. Usa observações visuais concretas apenas se estiverem disponíveis. Não pareça spam e não inventes factos.",
+  translate: "Traduz e adapta a mensagem fornecida para o idioma pedido, preservando intenção, tom e naturalidade. Devolve apenas a mensagem final.",
 };
+function sectorInstructions(category: string): string {
+  const c = category.toLocaleLowerCase("pt-PT");
+  if (/restaurante|café|pastelaria|pizzaria|hamburg|padaria|bar|comida/.test(c)) return "SETOR ALIMENTAR: prioriza pratos, bebidas, apresentação, ambiente, menu visual, reservas ou takeaway apenas se confirmados.";
+  if (/oficina|automóvel|mecânic|pneus|auto repair/.test(c)) return "SETOR AUTOMÓVEL: examina veículos, boxes, elevadores, ferramentas e equipamentos. Revisão, diagnóstico, travões, pneus, chapa/pintura ou eletrónica só são serviços confirmados se houver evidência explícita; caso contrário escreve a confirmar.";
+  if (/cabeleire|barbear|salão|estética/.test(c)) return "SETOR BELEZA: observa cortes, penteados, unhas, tratamentos e ambiente; sugere galeria de trabalhos e marcação apenas se aplicável.";
+  if (/clínica|dent|médic|fisioter|saúde/.test(c)) return "SETOR SAÚDE: não diagnostiques nem infiras especialidades; descreve apenas espaço e equipamentos visíveis.";
+  if (/ginásio|fitness|crossfit|yoga|pilates/.test(c)) return "SETOR FITNESS: observa equipamentos, zonas de treino e ambiente; não inventes modalidades nem horários.";
+  return "Adapta a análise ao setor real. Usa imagens para observar produtos, serviços, instalações, equipamentos e ambiente, distinguindo observações de hipóteses.";
+}
 
 export const generateWithAI = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => AiSchema.parse(d))
