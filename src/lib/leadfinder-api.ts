@@ -4,7 +4,7 @@ import { describeProviderError, diagnoseMapsKey } from "./leadfinder-errors";
 
 // Secrets are read ONLY inside .handler() bodies. On Cloudflare Workers (nodejs_compat)
 // the runtime populates process.env per request; locally Vite loads .env. Never use VITE_ for these.
-type EnvKey = "GOOGLE_MAPS_API_KEY" | "AI_API_KEY" | "AI_BASE_URL" | "AI_MODEL";
+type EnvKey = "LOVABLE_API_KEY" | "GOOGLE_MAPS_API_KEY" | "AI_API_KEY" | "AI_BASE_URL" | "AI_MODEL";
 function readEnv(key: EnvKey, fallback = ""): string {
   const v = typeof process !== "undefined" ? process.env?.[key] : undefined;
   return typeof v === "string" && v.trim() ? v.trim() : fallback;
@@ -29,6 +29,12 @@ const AiSchema = z.object({
   language: z.string().max(60).optional(),
 });
 
+const PLACES_URL = "https://connector-gateway.lovable.dev/google_maps/places/v1/places:searchText";
+function mapsHeaders(fieldMask: string): Record<string, string> | null {
+  const lovable = readEnv("LOVABLE_API_KEY"), conn = readEnv("GOOGLE_MAPS_API_KEY");
+  if (!lovable || !conn) return null;
+  return { "Content-Type": "application/json", Authorization: `Bearer ${lovable}`, "X-Connection-Api-Key": conn, "X-Goog-FieldMask": fieldMask };
+}
 async function safeJson(res: Response): Promise<any> {
   try {
     return await res.json();
@@ -49,16 +55,12 @@ const FIELD_MASK =
 export const searchPlaces = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SearchSchema.parse(d))
   .handler(async ({ data }) => {
-    const key = readEnv("GOOGLE_MAPS_API_KEY");
-    if (!key) throw new Error("GOOGLE_MAPS_API_KEY não está configurada nos Secrets do projeto.");
+    const headers = mapsHeaders(FIELD_MASK);
+    if (!headers) throw new Error("A ligação Google Maps não está configurada neste projeto.");
     const query = `${data.niche} em ${data.city}${data.region ? ", " + data.region : ""}, ${data.country}`;
-    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    const res = await fetch(PLACES_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": FIELD_MASK,
-      },
+      headers,
       body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT" }),
     });
     const body = await safeJson(res);
@@ -150,18 +152,18 @@ export const generateWithAI = createServerFn({ method: "POST" })
   });
 
 export const validateGoogleMaps = createServerFn({ method: "POST" }).handler(async () => {
-  const key = readEnv("GOOGLE_MAPS_API_KEY");
-  if (!key) return diagnoseMapsKey(0, {});
+  const headers = mapsHeaders("places.id");
+  if (!headers) return diagnoseMapsKey(0, {});
   try {
-    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    const res = await fetch(PLACES_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.id" },
+      headers,
       body: JSON.stringify({ textQuery: "café Lisboa", pageSize: 1 }),
     });
     const r = diagnoseMapsKey(res.status, await safeJson(res));
     if (!r.ok) console.error(`Maps validation ${res.status}: ${r.title}`);
     return r;
   } catch {
-    return { ok: false, title: "Sem ligação ao Google", steps: ["Não foi possível contactar places.googleapis.com. Tenta novamente."] };
+    return { ok: false, title: "Sem ligação ao Google", steps: ["Não foi possível contactar o Google Maps. Tenta novamente."] };
   }
 });

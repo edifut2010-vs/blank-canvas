@@ -22,7 +22,7 @@ export function diagnoseMapsKey(status: number, body: unknown): MapsCheck {
   const err = (body as { error?: { message?: string; status?: string; details?: { reason?: string }[] } })?.error;
   const reason = err?.details?.find((d) => d.reason)?.reason ?? "";
   const msg = (err?.message ?? "").toLowerCase();
-  if (status === 0) return { ok: false, title: "Chave não configurada", steps: ["Adiciona GOOGLE_MAPS_API_KEY nos Secrets do projeto (Project Settings → Secrets)."] };
+  if (status === 0) return { ok: false, title: "Chave não configurada", steps: ["Liga o conector Google Maps ao projeto em Conectores."] };
   if (status >= 200 && status < 300) return { ok: true, title: "Places API (New) acessível", steps: ["A chave é válida e a pesquisa de leads está pronta a usar."] };
   if (reason === "API_KEY_INVALID" || status === 401 || msg.includes("api key not valid"))
     return { ok: false, title: "Chave inválida", steps: ["Cria uma chave em Google Cloud → APIs e serviços → Credenciais → Criar credenciais → Chave de API (começa por AIza).", "Substitui o valor de GOOGLE_MAPS_API_KEY nos Secrets do projeto."] };
