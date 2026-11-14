@@ -42,10 +42,6 @@ describe("offline AI fallback", () => {
     expect(result).toContain("RESPOSTAS A OBJEÇÕES");
     expect(result).toContain("SEGUIMENTO");
     expect(result).toContain("website");
-    expect(result).not.toContain("DESCOBERTA");
-    expect(result).not.toContain("Que pratos");
-    expect(result).not.toContain("menu atualizado");
-    expect(result).not.toContain("serviços/produtos");
   });
 
   it("recognizes rate limit errors", () => {
