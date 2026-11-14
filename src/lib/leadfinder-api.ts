@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { describeProviderError } from "./leadfinder-errors";
+import { describeProviderError, diagnoseMapsKey } from "./leadfinder-errors";
 
 // Secrets are read ONLY inside .handler() bodies. On Cloudflare Workers (nodejs_compat)
 // the runtime populates process.env per request; locally Vite loads .env. Never use VITE_ for these.
@@ -148,3 +148,20 @@ export const generateWithAI = createServerFn({ method: "POST" })
     if (!text) throw new Error("A IA não devolveu texto.");
     return { text };
   });
+
+export const validateGoogleMaps = createServerFn({ method: "POST" }).handler(async () => {
+  const key = readEnv("GOOGLE_MAPS_API_KEY");
+  if (!key) return diagnoseMapsKey(0, {});
+  try {
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key, "X-Goog-FieldMask": "places.id" },
+      body: JSON.stringify({ textQuery: "café Lisboa", pageSize: 1 }),
+    });
+    const r = diagnoseMapsKey(res.status, await safeJson(res));
+    if (!r.ok) console.error(`Maps validation ${res.status}: ${r.title}`);
+    return r;
+  } catch {
+    return { ok: false, title: "Sem ligação ao Google", steps: ["Não foi possível contactar places.googleapis.com. Tenta novamente."] };
+  }
+});

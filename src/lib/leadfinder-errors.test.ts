@@ -6,3 +6,10 @@ describe("describeProviderError", () => {
   it("maps 401 to invalid key", () =>
     expect(describeProviderError("ai", 401, {})).toContain("inválida"));
 });
+import { diagnoseMapsKey } from "./leadfinder-errors";
+describe("diagnoseMapsKey", () => {
+  it("ok on 200", () => expect(diagnoseMapsKey(200, {}).ok).toBe(true));
+  it("invalid key", () => expect(diagnoseMapsKey(400, { error: { details: [{ reason: "API_KEY_INVALID" }] } }).title).toBe("Chave inválida"));
+  it("service disabled", () => expect(diagnoseMapsKey(403, { error: { details: [{ reason: "SERVICE_DISABLED" }] } }).title).toContain("não está ativa"));
+  it("missing key", () => expect(diagnoseMapsKey(0, {}).ok).toBe(false));
+});
