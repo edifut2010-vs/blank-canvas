@@ -19,6 +19,7 @@ const SearchSchema = z.object({
   phoneOnly: z.boolean().optional(),
   minRating: z.number().min(0).max(5).optional(),
   minReviews: z.number().min(0).max(1e6).optional(),
+  pageToken: z.string().min(1).max(4096).optional(),
 });
 const AiSchema = z.object({
   task: z.enum(["analysis", "website", "outreach", "translate"]),
@@ -64,13 +65,15 @@ export const searchPlaces = createServerFn({ method: "POST" })
           error: "A ligação Google Maps não está totalmente configurada. Confirma os Secrets LOVABLE_API_KEY e GOOGLE_MAPS_API_KEY no alojamento.",
           leads: [],
           total: 0,
+          nextPageToken: null,
+          hasMore: false,
         };
       }
       const query = `${data.niche} em ${data.city}${data.region ? ", " + data.region : ""}, ${data.country}`;
       const res = await fetch(PLACES_URL, {
         method: "POST",
         headers,
-        body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT" }),
+        body: JSON.stringify({ textQuery: query, pageSize: 20, languageCode: "pt-PT", ...(data.pageToken ? { pageToken: data.pageToken } : {}) }),
       });
       const body = await safeJson(res);
       if (!res.ok) {
@@ -80,6 +83,8 @@ export const searchPlaces = createServerFn({ method: "POST" })
           error: describeProviderError("google", res.status, body),
           leads: [],
           total: 0,
+          nextPageToken: null,
+          hasMore: false,
         };
       }
       const places: any[] = Array.isArray(body.places) ? body.places : [];
@@ -104,7 +109,7 @@ export const searchPlaces = createServerFn({ method: "POST" })
           (l.rating || 0) >= (data.minRating || 0) &&
           l.reviews >= (data.minReviews || 0),
       );
-      return { ok: true as const, leads: filtered, total: filtered.length };
+      return { ok: true as const, leads: filtered, total: filtered.length, nextPageToken: body.nextPageToken || null, hasMore: Boolean(body.nextPageToken) };
     } catch (error) {
       console.error("Places search failed:", error);
       return {
@@ -114,6 +119,8 @@ export const searchPlaces = createServerFn({ method: "POST" })
           : "Não foi possível contactar o Google Places. Verifica a ligação e tenta novamente.",
         leads: [],
         total: 0,
+        nextPageToken: null,
+        hasMore: false,
       };
     }
   });
