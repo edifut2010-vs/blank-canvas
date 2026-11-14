@@ -25,11 +25,12 @@ AI_MODEL=gpt-4o-mini
 ```
 A pesquisa Google usa o conector Google Maps do Lovable (sem chave própria). No Lovable, define os valores em **Project Settings → Secrets** (nunca no chat, no código ou em commits). Não uses prefixo VITE_ para credenciais. As chaves são lidas só dentro das funções de servidor e nunca chegam ao browser.
 
-Testar: abre **Definições** (ambas devem mostrar "Configurada"), faz uma pesquisa em **Encontrar Leads** e gera uma análise IA. Erros 401/403/429 aparecem com mensagem clara.
+Testar: abre **Definições** (ambas devem mostrar "Configurada"), faz uma pesquisa em **Encontrar Leads** e experimenta **Analisar IA** e **Gerar website**. Se o fornecedor de IA falhar ou devolver 429, a aplicação apresenta conteúdo de recurso local, sem o apresentar como análise visual real. O conteúdo IA completo depende de chave, modelo e quota válidos.
 
 ## Funcionalidades
 - Pesquisa real via Google Places API (New), com localização, nicho, website, telefone e avaliações.
-- Análise IA, geração de prompt para website, abordagem comercial e tradução.
+- Análise de negócio, geração de prompt detalhado para website, abordagem comercial e mensagens em vários idiomas.
+- Fallback local para análise, briefing e abordagem quando o fornecedor de IA estiver indisponível ou atingir a quota; o conteúdo local identifica claramente os dados não verificados.
 - Leads e histórico guardados localmente no navegador.
 - Exportação Markdown, cópia de texto e ligação manual para WhatsApp.
 - Credenciais processadas no servidor; a interface informa quando falta configuração.
