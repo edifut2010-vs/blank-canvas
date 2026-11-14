@@ -37,7 +37,10 @@ describe("offline AI fallback", () => {
       channel: "Email",
       tone: "Profissional",
     });
-    expect(result).toContain("Hello, Café Central!");
+    expect(result).toContain("GUIÃO DE CONVERSA");
+    expect(result).toContain("Café Central");
+    expect(result).toContain("RESPOSTAS A OBJEÇÕES");
+    expect(result).toContain("SEGUIMENTO");
     expect(result).toContain("website");
   });
 
