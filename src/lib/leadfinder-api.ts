@@ -140,6 +140,22 @@ export const generateWithAI = createServerFn({ method: "POST" })
     const key = readEnv("AI_API_KEY");
     if (!key) throw new Error("AI_API_KEY não está configurada nos Secrets do projeto.");
     const base = readEnv("AI_BASE_URL", "https://api.openai.com/v1").replace(/\/$/, "");
+    const photoRefs = Array.isArray(data.lead.photos) ? data.lead.photos.slice(0, 4) : [];
+    const photoUris: string[] = [];
+    const photoHeaders = mapsHeaders("");
+    if (photoRefs.length && photoHeaders && (data.task === "analysis" || data.task === "website")) {
+      for (const photo of photoRefs) {
+        const name = typeof photo.name === "string" ? photo.name : "";
+        if (!name.startsWith("places/") || !name.includes("/photos/")) continue;
+        try {
+          const photoRes = await fetch("https://connector-gateway.lovable.dev/google_maps/places/v1/" + name + "/media?maxWidthPx=1200&skipHttpRedirect=true", { method: "GET", headers: photoHeaders });
+          const photoBody = await safeJson(photoRes);
+          if (photoRes.ok && typeof photoBody.photoUri === "string" && photoBody.photoUri.startsWith("https://")) photoUris.push(photoBody.photoUri);
+        } catch (error) { console.warn("Google Places photo could not be loaded:", error); }
+      }
+    }
+    const userText = JSON.stringify({ negocio: data.lead, contexto: data.context, tom: data.tone, canal: data.channel, idioma: data.language, fotografias: photoUris.length ? "Analisa visualmente as fotografias anexadas e descreve o que é observável." : "Não foi possível obter fotografias; não afirmes que analisaste imagens." }, null, 2);
+    const userContent: any = photoUris.length ? [{ type: "text", text: userText }, ...photoUris.map((url) => ({ type: "image_url", image_url: { url, detail: "high" } }))] : userText;
     const res = await fetch(base + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
@@ -155,17 +171,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
           },
           {
             role: "user",
-            content: JSON.stringify(
-              {
-                negocio: data.lead,
-                contexto: data.context,
-                tom: data.tone,
-                canal: data.channel,
-                idioma: data.language,
-              },
-              null,
-              2,
-            ),
+            content: userContent,
           },
         ],
       }),
