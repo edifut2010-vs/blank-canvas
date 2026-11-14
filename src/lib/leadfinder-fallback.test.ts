@@ -33,7 +33,7 @@ describe("offline AI fallback", () => {
     const result = generateOfflineContent({
       task: "outreach",
       lead,
-      language: "English",
+      language: "Português de Portugal",
       channel: "Email",
       tone: "Profissional",
     });
