@@ -27,19 +27,85 @@ const clean = (value: unknown, fallback = "Não identificado") =>
 function outreachInLanguage(lead: OfflineLead, language: string, channel: string, tone: string) {
   const name = clean(lead.name, "a sua empresa");
   const business = clean(lead.category, "negócio local");
-  const contact = channel === "Email" ? "Olá" : "Olá";
-  const templates: Record<string, string> = {
-    "Português de Portugal": `${contact}, ${name}! Estive a conhecer a presença online do vosso negócio de ${business}. Gostava de vos apresentar uma proposta para um website profissional, rápido e adaptado a telemóveis, pensado para mostrar melhor os vossos serviços e facilitar os contactos de novos clientes. Teriam disponibilidade para uma breve conversa, sem compromisso?`,
-    "Português do Brasil": `Olá, ${name}! Estive conhecendo a presença online do negócio de vocês (${business}) e gostaria de apresentar uma proposta para um site profissional, rápido e adaptado para celulares, pensado para destacar seus serviços e facilitar o contato de novos clientes. Podemos conversar rapidamente, sem compromisso?`,
-    "English": `Hello, ${name}! I came across your ${business} business and would love to show you an idea for a professional, mobile-friendly website that presents your services clearly and makes it easier for new customers to get in touch. Would you be open to a brief, no-obligation conversation?`,
-    "Español": `¡Hola, ${name}! He conocido vuestro negocio de ${business} y me gustaría presentaros una propuesta para una página web profesional, rápida y adaptada a móviles, que muestre mejor vuestros servicios y facilite el contacto de nuevos clientes. ¿Tendríais disponibilidad para una breve conversación, sin compromiso?`,
-    "Français": `Bonjour, ${name} ! J'ai découvert votre activité de ${business} et j'aimerais vous présenter une proposition de site web professionnel, rapide et adapté aux mobiles, afin de mieux présenter vos services et de faciliter le contact avec de nouveaux clients. Seriez-vous disponible pour un bref échange, sans engagement ?`,
-    "Deutsch": `Hallo, ${name}! Ich bin auf Ihr Unternehmen im Bereich ${business} aufmerksam geworden und würde Ihnen gerne eine Idee für eine professionelle, mobilfreundliche Website vorstellen, die Ihre Leistungen präsentiert und die Kontaktaufnahme erleichtert. Hätten Sie Zeit für ein kurzes, unverbindliches Gespräch?`,
-    "Italiano": `Ciao, ${name}! Ho scoperto la vostra attività di ${business} e vorrei presentarvi una proposta per un sito web professionale, veloce e ottimizzato per dispositivi mobili, pensato per valorizzare i vostri servizi e facilitare i contatti con nuovi clienti. Sareste disponibili per una breve conversazione senza impegno?`,
-    "Holandês": `Hallo, ${name}! Ik heb uw ${business}-bedrijf ontdekt en zou graag een voorstel doen voor een professionele, mobielvriendelijke website die uw diensten duidelijk presenteert en nieuwe klanten helpt contact op te nemen. Heeft u tijd voor een kort, vrijblijvend gesprek?`,
-  };
-  const message = templates[language] ?? templates["Português de Portugal"];
-  return tone === "Muito curto" ? message.split(/[.!?]/).slice(0, 2).join(".").trim() + "." : message;
+  const address = clean(lead.address, "localização não confirmada");
+  const title = channel === "Email" ? "Assunto: Uma ideia para a presença online da empresa" : "GUIÃO DE CONVERSA — primeira mensagem até ao seguimento";
+  if (language === "Inglês" || language === "English") {
+    return [
+      "Subject: An idea to strengthen your business online", "",
+      "1. OPENING",
+      "Hello! Am I speaking with the person responsible for " + name + "? My name is [YOUR NAME]. I came across your " + business + " business in " + address + ". Is this a good time for a quick minute?", "",
+      "2. DISCOVERY",
+      "How do most new customers find you today — Google, social media, referrals or walk-ins? When someone wants to check your services, see examples of your work or make an enquiry outside business hours, how do they do that? Is there a service you would particularly like to promote?", "",
+      "3. CONNECT TO THEIR NEED",
+      "A professional website could bring essential information together, highlight the services you actually provide, show genuine photos, answer common questions and make mobile enquiries easier. It should complement what already works for you, not replace it.", "",
+      "4. PROPOSAL",
+      "I can prepare an initial visual concept and page structure tailored to your business. If you like the direction, I will provide a written proposal with scope, features, timeline and transparent pricing before you commit.", "",
+      "5. CLOSE",
+      "Would a 10-minute call be convenient, or would you prefer that I send a few examples and an initial idea first?", "",
+      "6. COMMON OBJECTIONS",
+      "We already use social media — That is great. A website would complement your social channels, organise information and give customers one dedicated place to find you.",
+      "How much does it cost? — It depends on the scope. I would first understand what you need and then send a clear, no-obligation quote.",
+      "Send me information — Of course. What is the best email or contact? May I follow up next week?",
+      "Not interested — Understood. Thank you for your time, and I wish you continued success.", "",
+      "7. FOLLOW-UP",
+      "After 2–3 days: Hello, this is [YOUR NAME] following up on my idea for a website. Would it help if I sent a short summary for you to review when convenient?",
+      "Final follow-up: I do not want to bother you, so this will be my last message. If a more complete online presence becomes relevant in the future, I would be happy to talk. Thank you.", "",
+      "PERSONALISE: replace [YOUR NAME], confirm you are speaking to the right person, never invent services, prices or results, and adapt each message to the owner's replies."
+    ].join("\n");
+  }
+  if (language === "Espanhol" || language === "Español") {
+    return [
+      "GUIÓN DE CONVERSACIÓN — primer contacto y seguimiento", "",
+      "1. APERTURA",
+      "¡Hola! ¿Hablo con la persona responsable de " + name + "? Me llamo [TU NOMBRE]. He encontrado vuestro negocio de " + business + " en " + address + ". ¿Es buen momento para hablar un minuto?", "",
+      "2. DESCUBRIMIENTO",
+      "¿Cómo suelen encontraros los nuevos clientes: Google, redes sociales, recomendaciones o clientes habituales? ¿Dónde pueden consultar vuestros servicios y contactar fuera del horario? ¿Hay algún servicio que queráis promocionar especialmente?", "",
+      "3. PROPUESTA ADAPTADA",
+      "Una web profesional podría reunir la información, presentar los servicios reales, mostrar fotografías auténticas y facilitar consultas desde el móvil. Complementaría vuestra presencia actual, sin sustituir lo que ya funciona.", "",
+      "4. SIGUIENTE PASO",
+      "Puedo preparar una primera idea visual y una estructura de páginas sin compromiso. Si os gusta, enviaré una propuesta clara con alcance, plazo y precio antes de tomar ninguna decisión.", "",
+      "5. CIERRE",
+      "¿Os vendría bien una llamada de 10 minutos o preferís que os envíe primero algunos ejemplos?", "",
+      "6. OBJECIONES",
+      "Ya usamos redes sociales — Perfecto; la web las complementaría y reuniría la información en un espacio propio.",
+      "¿Cuánto cuesta? — Depende del alcance. Primero conocería vuestras necesidades y después enviaría un presupuesto claro.",
+      "Envíame información — Por supuesto. ¿Cuál es el mejor correo o contacto? ¿Puedo volver a escribiros la próxima semana?",
+      "No nos interesa — Lo entiendo. Gracias por vuestro tiempo y mucho éxito.", "",
+      "7. SEGUIMIENTO",
+      "A los 2–3 días: Hola, soy [TU NOMBRE]. Solo quería saber si habéis podido revisar mi idea. Si os ayuda, puedo enviar un resumen breve.",
+      "Último mensaje: No quiero molestar, así que este será mi último mensaje. Si en el futuro os interesa mejorar vuestra presencia online, estaré encantado de hablar.", "",
+      "Personaliza [TU NOMBRE], confirma los datos y no inventes servicios, precios ni resultados. Adapta cada mensaje a las respuestas."
+    ].join("\n");
+  }
+  return [
+    title, "",
+    "1. ABERTURA — primeira mensagem",
+    "Olá! Estou a falar com a pessoa responsável pela " + name + "? Chamo-me [O TEU NOME]. Encontrei o vosso negócio de " + business + " em " + address + " e queria partilhar uma ideia que pode ser útil. É uma boa altura para falar durante um minuto?", "",
+    "2. DESCOBERTA — ouvir antes de apresentar",
+    "Como é que a maioria dos novos clientes vos encontra atualmente: Google, redes sociais, recomendações ou passagem na rua?",
+    "Quando alguém quer conhecer os vossos serviços, ver exemplos do vosso trabalho ou pedir informações fora do horário, como costuma fazê-lo?",
+    "Há algum serviço, produto ou tipo de cliente que gostassem de promover mais?", "",
+    "3. LIGAÇÃO À NECESSIDADE — responder ao que o cliente disser",
+    "Percebo. Um website poderia reunir a informação essencial, destacar os serviços que realmente disponibilizam, mostrar fotografias reais, responder a dúvidas frequentes e facilitar pedidos de contacto através do telemóvel.",
+    "Não quero partir do princípio de que precisam disto: o objetivo é perceber se um canal próprio complementa aquilo que já fazem nas redes sociais e no Google.", "",
+    "4. PROPOSTA DE VALOR",
+    "Posso preparar uma primeira ideia visual e uma estrutura de páginas adaptadas ao negócio. Se gostarem da direção, apresento uma proposta escrita com páginas, funcionalidades, prazo e preço — tudo claro antes de assumirem qualquer compromisso.", "",
+    "5. FECHO — pergunta simples e sem pressão",
+    "Faria sentido marcarmos uma chamada de 10 minutos? Se preferir, posso primeiro enviar alguns exemplos e uma ideia inicial por mensagem. Qual das opções lhe dá mais jeito?", "",
+    "6. RESPOSTAS A OBJEÇÕES",
+    "Já temos Instagram/Facebook — Ótimo. O website não substitui as redes; complementa-as, organiza a informação e dá aos clientes um endereço próprio para consultarem os serviços.",
+    "Já temos clientes suficientes — Compreendo. Talvez a prioridade seja facilitar o acesso à informação e reduzir perguntas repetidas. Se não for necessário, não há problema.",
+    "Quanto custa? — Depende do que fizer sentido incluir. Primeiro percebo as necessidades e depois envio um orçamento discriminado, sem compromisso.",
+    "Não temos tempo — Percebo. Numa conversa recolho a informação essencial e envio uma proposta organizada para validarem quando puderem.",
+    "Envie informação — Claro. Qual é o melhor email ou contacto? Posso voltar a falar consigo na próxima semana?",
+    "Não temos interesse — Sem problema. Agradeço a sinceridade e o tempo. Desejo-vos continuação de bom trabalho.", "",
+    "7. SEGUIMENTO — após 2–3 dias sem resposta",
+    "Olá! Daqui fala [O TEU NOME]. Estou só a retomar a mensagem sobre a ideia de website para a " + name + ". Faz sentido que lhe envie um pequeno resumo para consultar quando tiver disponibilidade?",
+    "Último seguimento: Não quero incomodar, por isso esta será a minha última mensagem. Se um dia fizer sentido explorar uma presença online mais completa, terei todo o gosto em conversar. Obrigado e continuação de bom trabalho.", "",
+    "8. PERSONALIZAÇÃO",
+    "Substitui [O TEU NOME], confirma que estás a falar com o responsável e adapta as perguntas às respostas reais. Não inventes serviços, resultados, clientes, preços, prazos ou problemas. Envia uma mensagem de cada vez; não envies o guião inteiro ao cliente.",
+    "Estilo: " + tone + ". Canal: " + channel + "."
+  ].join("\n");
 }
 
 export function generateOfflineContent(input: OfflineInput): string {
@@ -136,8 +202,11 @@ export function generateOfflineContent(input: OfflineInput): string {
     ].join("\n");
   }
 
-  if (input.task === "outreach" || input.task === "translate") {
+  if (input.task === "outreach") {
     return outreachInLanguage(lead, input.language ?? "Português de Portugal", input.channel ?? "WhatsApp", input.tone ?? "Profissional");
+  }
+  if (input.task === "translate") {
+    return "A tradução requer uma ligação funcional ao serviço de IA. A abordagem original foi preservada; tenta novamente quando a IA estiver disponível.";
   }
 
   return "Não foi possível gerar este conteúdo localmente.";
