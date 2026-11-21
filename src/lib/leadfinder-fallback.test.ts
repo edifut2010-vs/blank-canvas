@@ -45,11 +45,12 @@ describe("offline AI fallback", () => {
   });
 
   it("includes Google Maps menu tabs and prices", () => {
-    const withMenu = { ...lead, menu: { priceLevel: "PRICE_LEVEL_MODERATE", priceRange: { min: "10 EUR", max: "20 EUR" }, categories: ["Cocktails/Drinks", "Vinhos"], services: [] } };
+    const withMenu = { ...lead, menu: { priceLevel: "PRICE_LEVEL_MODERATE", priceRange: { min: "10 EUR", max: "20 EUR" }, categories: ["Cocktails/Drinks", "Vinhos"], services: [], dishes: ["carbonara", "tiramisu"] } };
     for (const task of ["analysis", "website"] as const) {
       const r = generateOfflineContent({ task, lead: withMenu });
       expect(r).toContain("Cocktails/Drinks, Vinhos");
       expect(r).toContain("10 EUR – 20 EUR");
+      expect(r).toContain("carbonara, tiramisu");
     }
   });
 

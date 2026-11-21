@@ -16,6 +16,8 @@ export type OfflineLead = {
     categories?: string[];
     services?: string[];
     summary?: string | null;
+    dishes?: string[];
+    reviewSnippets?: string[];
   };
 };
 
@@ -34,6 +36,8 @@ export function menuLines(lead: OfflineLead): string[] {
     `• Faixa de preço por pessoa: ${range}`,
     `• Serviços: ${m.services?.length ? m.services.join(", ") : "não indicados"}`,
     ...(m.summary ? [`• Resumo Google: ${m.summary}`] : []),
+    `• Pratos/refeições mencionados nas avaliações Google: ${m.dishes?.length ? m.dishes.join(", ") : "nenhum identificado — confirmar com o proprietário"}`,
+    ...(m.reviewSnippets?.length ? ["• Excertos de avaliações (referência para pratos):", ...m.reviewSnippets.map((t) => `   – "${t}"`)] : []),
     "• Preços de pratos/bebidas individuais: a confirmar com o proprietário (o Google Maps não os fornece).",
   ];
 }
