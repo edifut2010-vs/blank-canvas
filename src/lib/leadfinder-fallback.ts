@@ -10,7 +10,33 @@ export type OfflineLead = {
   website?: string | null;
   mapsUrl?: string;
   hours?: string[];
+  menu?: {
+    priceLevel?: string | null;
+    priceRange?: { min?: string | null; max?: string | null } | null;
+    categories?: string[];
+    services?: string[];
+    summary?: string | null;
+  };
 };
+
+const PRICE_LEVELS: Record<string, string> = {
+  PRICE_LEVEL_FREE: "Gratuito", PRICE_LEVEL_INEXPENSIVE: "€ (económico)", PRICE_LEVEL_MODERATE: "€€ (moderado)",
+  PRICE_LEVEL_EXPENSIVE: "€€€ (caro)", PRICE_LEVEL_VERY_EXPENSIVE: "€€€€ (muito caro)",
+};
+
+export function menuLines(lead: OfflineLead): string[] {
+  const m = lead.menu;
+  if (!m) return ["• O Google Maps não devolveu dados de menu para este negócio (refaz a pesquisa para atualizar)."];
+  const range = m.priceRange && (m.priceRange.min || m.priceRange.max) ? `${m.priceRange.min || "?"} – ${m.priceRange.max || "?"}` : "a confirmar";
+  return [
+    `• Sub-abas/categorias do menu: ${m.categories?.length ? m.categories.join(", ") : "não indicadas pelo Google Maps"}`,
+    `• Nível de preço: ${m.priceLevel ? PRICE_LEVELS[m.priceLevel] || m.priceLevel : "a confirmar"}`,
+    `• Faixa de preço por pessoa: ${range}`,
+    `• Serviços: ${m.services?.length ? m.services.join(", ") : "não indicados"}`,
+    ...(m.summary ? [`• Resumo Google: ${m.summary}`] : []),
+    "• Preços de pratos/bebidas individuais: a confirmar com o proprietário (o Google Maps não os fornece).",
+  ];
+}
 
 type OfflineInput = {
   task: OfflineTask;
@@ -134,19 +160,22 @@ export function generateOfflineContent(input: OfflineInput): string {
       `• Número de avaliações: ${reviews}`,
       "• As avaliações e o seu conteúdo não foram recolhidos nesta análise; não devem ser presumidos.",
       "",
-      "3. PRESENÇA DIGITAL E IDENTIDADE VISUAL",
+      "3. MENU E PREÇOS (Google Maps)",
+      ...menuLines(lead),
+      "",
+      "4. PRESENÇA DIGITAL E IDENTIDADE VISUAL",
       "• A informação disponível nesta pesquisa provém dos dados do Google Places.",
       "• Não foi feita uma inspeção visual do website nem das redes sociais nesta execução.",
       "• Logótipo, paleta cromática, tipografia, estilo fotográfico e consistência da marca: por confirmar.",
       "",
-      "4. OPORTUNIDADES A VALIDAR",
+      "5. OPORTUNIDADES A VALIDAR",
       "• Criar uma página inicial clara com proposta de valor, serviços e chamadas à ação.",
       "• Apresentar morada, horário, telefone e mapa, depois de confirmar os dados.",
       "• Incluir testemunhos reais apenas com autorização e fonte verificável.",
       "• Melhorar SEO local com páginas e metadados específicos da atividade e localização.",
       "• Garantir experiência mobile, acessibilidade, rapidez e formulários protegidos.",
       "",
-      "5. LIMITAÇÕES",
+      "6. LIMITAÇÕES",
       "Esta análise foi gerada localmente porque o serviço de IA está temporariamente indisponível/limitado. Não substitui uma auditoria ao website, redes sociais ou avaliações. Confirma os dados com o proprietário antes de os usar numa proposta.",
     ].join("\n");
   }
@@ -164,6 +193,10 @@ export function generateOfflineContent(input: OfflineInput): string {
       `• Telefone: ${phone}`,
       `• Website atual: ${website}`,
       `• Avaliação Google: ${rating} (${reviews} avaliações)`,
+      "",
+      "MENU E PREÇOS (Google Maps)",
+      ...menuLines(lead),
+      "Cria uma página Menu com uma sub-aba por cada categoria acima (ex.: Pratos, Drinks, Vinhos, Sobremesas) e mostra a faixa de preço; preços individuais ficam como a confirmar.",
       "",
       "OBJETIVO",
       "Transformar visitantes locais em contactos e clientes. Tornar imediatamente claro o que a empresa oferece, onde opera e como pode ser contactada. Não inventes serviços, preços, certificações, prémios, testemunhos ou horários: usa campos editáveis e assinala informação por confirmar.",

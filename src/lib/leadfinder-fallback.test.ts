@@ -44,6 +44,15 @@ describe("offline AI fallback", () => {
     expect(result).toContain("website");
   });
 
+  it("includes Google Maps menu tabs and prices", () => {
+    const withMenu = { ...lead, menu: { priceLevel: "PRICE_LEVEL_MODERATE", priceRange: { min: "10 EUR", max: "20 EUR" }, categories: ["Cocktails/Drinks", "Vinhos"], services: [] } };
+    for (const task of ["analysis", "website"] as const) {
+      const r = generateOfflineContent({ task, lead: withMenu });
+      expect(r).toContain("Cocktails/Drinks, Vinhos");
+      expect(r).toContain("10 EUR – 20 EUR");
+    }
+  });
+
   it("recognizes rate limit errors", () => {
     expect(isAiRateLimitError(new Error("HTTP 429 quota exceeded"))).toBe(true);
     expect(isAiRateLimitError(new Error("Network error"))).toBe(false);
